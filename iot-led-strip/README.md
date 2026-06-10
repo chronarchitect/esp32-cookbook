@@ -24,7 +24,14 @@ An intelligent, cloud-connected bridge for "dumb" LED strips. This project uses 
 ## 📱 Accessing the Dashboard
 
 While on your home WiFi, navigate to:
-**[http://192.168.29.118](http://192.168.29.118)**
+**[http://ledstrip.local](http://ledstrip.local)** or **[http://192.168.29.118](http://192.168.29.118)**
+
+## 🛡️ Resilience & Self-Healing
+The system is designed to be highly available:
+*   **mDNS Discovery**: No more hunting for IP addresses; just use `ledstrip.local`.
+*   **Auto-Reconnect**: Automatically reconnects to WiFi and MQTT if the connection is lost.
+*   **Hybrid Control**: The web dashboard automatically falls back to MQTT if the local ESP32 webserver is unreachable (e.g., due to network isolation).
+*   **Concurrency Safe**: Handles simultaneous requests from the web UI and MQTT without state corruption.
 
 ## 🎨 Color Cycle (20 States)
 The system tracks the following sequence:

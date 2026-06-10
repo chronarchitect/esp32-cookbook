@@ -1,0 +1,13 @@
+linkify-it-py==2.1.0
+markdown-it-py==4.2.0
+mdit-py-plugins==0.6.1
+mdurl==0.1.2
+mpremote==1.28.0
+paho-mqtt==2.1.0
+platformdirs==4.10.0
+Pygments==2.20.0
+pyserial==3.5
+rich==15.0.0
+textual==8.2.7
+typing_extensions==4.15.0
+uc-micro-py==2.0.0
