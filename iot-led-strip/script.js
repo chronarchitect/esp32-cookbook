@@ -60,6 +60,16 @@ function wizColor(hex) {
     const b = parseInt(hex.substr(5,2), 16);
     apiCall('/wiz/rgb/' + r + '/' + g + '/' + b);
 }
+function toggleComplement() {
+    fetch('/complement/').then(res => res.json()).then(data => {
+        const status = data.complement_mode ? "ON" : "OFF";
+        document.getElementById("complement-btn").innerText = "Complement: " + status;
+        document.getElementById("status-msg").innerText = "Complement " + status;
+        setTimeout(() => { document.getElementById("status-msg").innerText = "System Ready"; }, 2000);
+    }).catch(e => {
+        document.getElementById("status-msg").innerText = "Connection lost";
+    });
+}
 
 // UI Initialization
 function initUI() {

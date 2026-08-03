@@ -39,6 +39,7 @@ current_color_idx = 0
 current_brightness = 7
 target_color_idx = 0
 target_brightness = 7
+complement_mode = False  # Toggle for WiZ complement colors
 wlan = network.WLAN(network.STA_IF)
 hw_lock = _thread.allocate_lock()
 worker_lock = _thread.allocate_lock()
@@ -78,6 +79,51 @@ def save_state():
         print("State save failed:", e)
 
 # --- WiZ Control ---
+def rgb_to_hsv(r, g, b):
+    """Convert RGB to HSV (hue 0-1, saturation 0-1, value 0-1)"""
+    r, g, b = r / 255.0, g / 255.0, b / 255.0
+    max_c = max(r, g, b)
+    min_c = min(r, g, b)
+    v = max_c
+    delta = max_c - min_c
+    
+    if delta == 0:
+        h = 0.0
+    elif max_c == r:
+        h = (60 * (((g - b) / delta) % 6)) / 360.0
+    elif max_c == g:
+        h = (60 * (((b - r) / delta) + 2)) / 360.0
+    else:
+        h = (60 * (((r - g) / delta) + 4)) / 360.0
+    
+    s = 0 if max_c == 0 else delta / max_c
+    return h, s, v
+
+def hsv_to_rgb(h, s, v):
+    """Convert HSV to RGB"""
+    h = (h % 1.0) * 360
+    c = v * s
+    x = c * (1 - abs(((h / 60) % 2) - 1))
+    m = v - c
+    
+    if h < 60:
+        r, g, b = c, x, 0
+    elif h < 120:
+        r, g, b = x, c, 0
+    elif h < 180:
+        r, g, b = 0, c, x
+    elif h < 240:
+        r, g, b = 0, x, c
+    elif h < 300:
+        r, g, b = x, 0, c
+    else:
+        r, g, b = c, 0, x
+    
+    r = int((r + m) * 255)
+    g = int((g + m) * 255)
+    b = int((b + m) * 255)
+    return r, g, b
+
 def set_wiz(params):
     msg = {"method": "setPilot", "params": params}
     try:
@@ -87,6 +133,11 @@ def set_wiz(params):
 
 def sync_wiz_to_current():
     r, g, b = COLOR_RGB[current_color_idx]
+    # Apply HSV complement if mode is enabled
+    if complement_mode:
+        h, s, v = rgb_to_hsv(r, g, b)
+        h = (h + 0.5) % 1.0  # Rotate hue by 180 degrees
+        r, g, b = hsv_to_rgb(h, s, v)
     set_wiz({"r": r, "g": g, "b": b, "state": True})
 
 # --- Network ---
@@ -191,6 +242,7 @@ def get_html_content():
         color_buttons = "".join(['<button class="color-btn" onclick="goTo(%d)">%s</button>' % (i, COLORS[i]) for i in range(len(COLORS))])
         sync_buttons = "".join(['<button class="color-btn" onclick="sync(%d)">%s</button>' % (i, COLORS[i]) for i in range(len(COLORS))])
         sync_bright_buttons = "".join(['<button class="color-btn" onclick="syncB(%d)">%d</button>' % (i, i) for i in range(8)])
+        complement_status = "ON" if complement_mode else "OFF"
         
         return tmpl.format(
             current_color=COLORS[current_color_idx],
@@ -200,7 +252,8 @@ def get_html_content():
             sync_bright_buttons=sync_bright_buttons,
             colors_js=json.dumps(COLORS),
             colors_rgb=json.dumps(COLOR_RGB),
-            status_topic=STATUS_TOPIC
+            status_topic=STATUS_TOPIC,
+            complement_status=complement_status
         )
     except Exception as e:
         return "Error loading index.html: %s" % e
@@ -268,7 +321,7 @@ def mqtt_worker():
             time.sleep(5)
 
 def run_server():
-    global current_color_idx, current_brightness, target_color_idx, target_brightness
+    global current_color_idx, current_brightness, target_color_idx, target_brightness, complement_mode
     addr = socket.getaddrinfo('0.0.0.0', 80)[0][-1]
     s = socket.socket()
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -387,6 +440,10 @@ def run_server():
                         set_wiz({"r": int(parts[0]), "g": int(parts[1]), "b": int(parts[2]), "state": True})
                     except: pass
                     response_data = json.dumps({"status": "ok"})
+                elif "GET /complement/" in request:
+                    complement_mode = not complement_mode
+                    sync_wiz_to_current()
+                    response_data = json.dumps({"complement_mode": complement_mode})
                 
                 if response_data:
                     conn.send("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n\r\n".encode())
